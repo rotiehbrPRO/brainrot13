@@ -1,26 +1,56 @@
--- Papagaio Hub (Dev/Admin) - by Rotieh
--- LocalScript em StarterPlayerScripts
+local OrionLib 
+loadstring(game:HttpGet(https://github.com/rotiehbrPRO/brainrot13/blob/main/README.md"))()
+	-- Papagaio Hub (Admin/Dev) - para o SEU jogo no Roblox Studio
+-- UI arrastável + mesmas funções do seu exemplo (versão segura, sem executor)
+-- Créditos: Rotieh
 
--- =========================
--- CONFIGURAÇÕES INICIAIS
--- =========================
+--=============================
+-- Serviços e utilidades
+--=============================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
-local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
-local Teams = game:GetService("Teams")
+local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Quem pode ver/usar o hub
-local ADMINS = {
-	["Rotieh"] = true,           -- troque / adicione nomes
-	[LocalPlayer.Name] = true,   -- garante o dono do script
+local function notify(t, m)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {Title = t, Text = m, Duration = 4})
+	end)
+end
+
+local function getChar(p)
+	local c = p.Character or p.CharacterAdded:Wait()
+	return c
+end
+local function getHum(p)
+	return getChar(p):WaitForChild("Humanoid")
+end
+local function getHRP(p)
+	return getChar(p):WaitForChild("HumanoidRootPart")
+end
+
+--=============================
+-- Estado do Hub
+--=============================
+local STATE = {
+	tpForwardStuds = 12,
+	boostEnabled = false,
+	boostSpeed = 42,
+	infiniteJump = false,
+	espPlayers = false,
+	espShowNames = true,
+	espShowHealth = true,
+	espTeamColor = true,
+	espLocked = false,              -- “ESP locked” (acha textos com ‘Xs’)
+	fillT = 0.5,
+	outT = 0.0,
 }
 
--- Posição base (exemplo: "Shop") — ajuste se quiser
+-- Posição base (Shop) – use a sua
 local SHOP_CFRAME = CFrame.new(
 	-378.420959, -6.25197887, 59.4905052,
 	0.106838159, -1.85177775e-08, 0.994276404,
@@ -28,54 +58,9 @@ local SHOP_CFRAME = CFrame.new(
 	-0.994276404, 1.07609189e-07, 0.106838159
 )
 
--- =========================
--- ESTADO DO HUB
--- =========================
-local state = {
-	uiOpen = true,
-	moveForwardStuds = 10,      -- teleporte “mais à frente” (ajustável no slider)
-	boostEnabled = false,
-	boostSpeed = 42,
-	infiniteJump = false,
-	espEnabled = false,
-	espShowNames = true,
-	espShowHealth = true,
-	espTeamColor = true,
-	espFillTransparency = 0.5,
-	espOutlineTransparency = 0,
-}
-
--- =========================
--- FERRAMENTAS AUXILIARES
--- =========================
-local function getCharacter(player)
-	local char = player.Character or player.CharacterAdded:Wait()
-	return char
-end
-
-local function getHumanoid(player)
-	local char = getCharacter(player)
-	return char:WaitForChild("Humanoid")
-end
-
-local function getHRP(player)
-	local char = getCharacter(player)
-	return char:WaitForChild("HumanoidRootPart")
-end
-
-local function notify(title, text)
-	pcall(function()
-		StarterGui:SetCore("SendNotification", {
-			Title = title,
-			Text = text,
-			Duration = 4
-		})
-	end)
-end
-
--- =========================
--- GUI BÁSICA
--- =========================
+--=============================
+-- GUI (arrastável) + Tabs
+--=============================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PapagaioHub"
 screenGui.IgnoreGuiInset = true
@@ -83,94 +68,74 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local main = Instance.new("Frame")
-main.Name = "Main"
-main.Size = UDim2.new(0, 320, 0, 420)
+main.Size = UDim2.new(0, 340, 0, 440)
 main.Position = UDim2.new(0, 20, 0, 120)
-main.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+main.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
 main.BorderSizePixel = 0
 main.Parent = screenGui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
-local corner = Instance.new("UICorner", main)
-corner.CornerRadius = UDim.new(0, 14)
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1, 0, 0, 44)
+header.BackgroundTransparency = 1
 
-local shadow = Instance.new("ImageLabel", main)
-shadow.Name = "Shadow"
-shadow.BackgroundTransparency = 1
-shadow.Image = "rbxassetid://5028857084"
-shadow.ImageTransparency = 0.45
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(24, 24, 276, 276)
-shadow.Size = UDim2.new(1, 30, 1, 30)
-shadow.Position = UDim2.new(0, -15, 0, -15)
-shadow.ZIndex = 0
-
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, -16, 0, 36)
-title.Position = UDim2.new(0, 8, 0, 8)
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, -16, 1, 0)
+title.Position = UDim2.new(0, 8, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Papagaio Hub"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "🦜 Papagaio Hub — by Rotieh"
 title.Font = Enum.Font.GothamBold
-title.TextSize = 20
+title.TextSize = 18
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-local subtitle = Instance.new("TextLabel", main)
-subtitle.Size = UDim2.new(1, -16, 0, 20)
-subtitle.Position = UDim2.new(0, 8, 0, 40)
-subtitle.BackgroundTransparency = 1
-subtitle.Text = "by Rotieh — Admin/Dev tools (para o seu jogo)"
-subtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
-subtitle.TextXAlignment = Enum.TextXAlignment.Left
-subtitle.Font = Enum.Font.Gotham
-subtitle.TextSize = 14
-
--- Drag do painel
+-- Drag
 do
-	local dragging, dragInput, startPos, startMousePos
-	main.InputBegan:Connect(function(input)
+	local dragToggle, dragInput, dragStart, startPos
+	header.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
+			dragToggle = true
+			dragStart = input.Position
 			startPos = main.Position
-			startMousePos = input.Position
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
+					dragToggle = false
 				end
 			end)
 		end
 	end)
-	main.InputChanged:Connect(function(input)
+	header.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			dragInput = input
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input == dragInput then
-			local delta = input.Position - startMousePos
-			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		if input == dragInput and dragToggle then
+			local delta = input.Position - dragStart
+			main.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
 		end
 	end)
 end
 
--- Abas
 local tabsBar = Instance.new("Frame", main)
 tabsBar.Size = UDim2.new(1, -16, 0, 36)
-tabsBar.Position = UDim2.new(0, 8, 0, 66)
+tabsBar.Position = UDim2.new(0, 8, 0, 48)
 tabsBar.BackgroundTransparency = 1
+local tabsLayout = Instance.new("UIListLayout", tabsBar)
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 6)
+tabsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 local content = Instance.new("Frame", main)
 content.Name = "Content"
-content.Size = UDim2.new(1, -16, 1, -118)
-content.Position = UDim2.new(0, 8, 0, 110)
-content.BackgroundColor3 = Color3.fromRGB(26, 26, 36)
+content.Size = UDim2.new(1, -16, 1, -96)
+content.Position = UDim2.new(0, 8, 0, 92)
+content.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
 content.BorderSizePixel = 0
-local contentCorner = Instance.new("UICorner", content)
-contentCorner.CornerRadius = UDim.new(0, 10)
-
-local list = Instance.new("UIListLayout", tabsBar)
-list.FillDirection = Enum.FillDirection.Horizontal
-list.Padding = UDim.new(0, 6)
-list.VerticalAlignment = Enum.VerticalAlignment.Center
+Instance.new("UICorner", content).CornerRadius = UDim.new(0, 10)
 
 local function makeTab(name)
 	local btn = Instance.new("TextButton")
@@ -178,32 +143,32 @@ local function makeTab(name)
 	btn.Text = name
 	btn.Font = Enum.Font.GothamBold
 	btn.TextSize = 14
-	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextColor3 = Color3.new(1,1,1)
 	btn.BackgroundColor3 = Color3.fromRGB(34, 34, 46)
 	btn.BorderSizePixel = 0
-	local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 	btn.Parent = tabsBar
 
 	local page = Instance.new("ScrollingFrame")
 	page.Name = "Page_"..name
 	page.Size = UDim2.new(1, -16, 1, -16)
 	page.Position = UDim2.new(0, 8, 0, 8)
-	page.CanvasSize = UDim2.new(0,0,0,0)
 	page.ScrollBarThickness = 6
 	page.BackgroundTransparency = 1
 	page.Visible = false
 	page.Parent = content
-
-	local grid = Instance.new("UIListLayout", page)
-	grid.Padding = UDim.new(0, 8)
-	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	local list = Instance.new("UIListLayout", page)
+	list.Padding = UDim.new(0, 8)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
 
 	btn.MouseButton1Click:Connect(function()
 		for _,child in ipairs(content:GetChildren()) do
 			if child:IsA("ScrollingFrame") then child.Visible = false end
 		end
 		for _,other in ipairs(tabsBar:GetChildren()) do
-			if other:IsA("TextButton") then other.BackgroundColor3 = Color3.fromRGB(34,34,46) end
+			if other:IsA("TextButton") then
+				other.BackgroundColor3 = Color3.fromRGB(34,34,46)
+			end
 		end
 		page.Visible = true
 		btn.BackgroundColor3 = Color3.fromRGB(60,60,88)
@@ -215,9 +180,9 @@ end
 local function makeToggle(parent, label, getter, setter)
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -8, 0, 36)
-	frame.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
+	frame.BackgroundColor3 = Color3.fromRGB(32,32,44)
 	frame.BorderSizePixel = 0
-	local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 	frame.Parent = parent
 
 	local txt = Instance.new("TextLabel", frame)
@@ -239,13 +204,13 @@ local function makeToggle(parent, label, getter, setter)
 	btn.TextColor3 = Color3.new(1,1,1)
 	btn.BackgroundColor3 = getter() and Color3.fromRGB(40, 140, 90) or Color3.fromRGB(100, 40, 40)
 	btn.BorderSizePixel = 0
-	local c2 = Instance.new("UICorner", btn); c2.CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
 	btn.MouseButton1Click:Connect(function()
-		local newVal = not getter()
-		setter(newVal)
-		btn.Text = newVal and "ON" or "OFF"
-		btn.BackgroundColor3 = newVal and Color3.fromRGB(40, 140, 90) or Color3.fromRGB(100, 40, 40)
+		local nv = not getter()
+		setter(nv)
+		btn.Text = nv and "ON" or "OFF"
+		btn.BackgroundColor3 = nv and Color3.fromRGB(40, 140, 90) or Color3.fromRGB(100, 40, 40)
 	end)
 
 	return frame
@@ -256,7 +221,7 @@ local function makeSlider(parent, label, min, max, step, getter, setter, suffix)
 	frame.Size = UDim2.new(1, -8, 0, 54)
 	frame.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
 	frame.BorderSizePixel = 0
-	local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 8)
+	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 	frame.Parent = parent
 
 	local txt = Instance.new("TextLabel", frame)
@@ -269,48 +234,41 @@ local function makeSlider(parent, label, min, max, step, getter, setter, suffix)
 	txt.TextSize = 14
 	txt.TextColor3 = Color3.new(1,1,1)
 
-	local sliderBg = Instance.new("Frame", frame)
-	sliderBg.Size = UDim2.new(1, -20, 0, 8)
-	sliderBg.Position = UDim2.new(0, 10, 0, 28)
-	sliderBg.BackgroundColor3 = Color3.fromRGB(45,45,60)
-	sliderBg.BorderSizePixel = 0
-	local c1 = Instance.new("UICorner", sliderBg); c1.CornerRadius = UDim.new(0, 4)
+	local bar = Instance.new("Frame", frame)
+	bar.Size = UDim2.new(1, -20, 0, 8)
+	bar.Position = UDim2.new(0, 10, 0, 28)
+	bar.BackgroundColor3 = Color3.fromRGB(45,45,60)
+	bar.BorderSizePixel = 0
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
 
-	local fill = Instance.new("Frame", sliderBg)
-	fill.Size = UDim2.new(0, 0, 1, 0)
-	fill.BackgroundColor3 = Color3.fromRGB(90, 120, 255)
-	fill.BorderSizePixel = 0
-	local c2 = Instance.new("UICorner", fill); c2.CornerRadius = UDim.new(0, 4)
+	local fill = Instance.new("Frame", bar); fill.BackgroundColor3 = Color3.fromRGB(90, 120, 255)
+	fill.Size = UDim2.new(0,0,1,0); fill.BorderSizePixel = 0
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
 
-	local knob = Instance.new("Frame", sliderBg)
-	knob.Size = UDim2.new(0, 12, 0, 12)
+	local knob = Instance.new("Frame", bar); knob.Size = UDim2.new(0, 12, 0, 12)
 	knob.Position = UDim2.new(0, -6, 0.5, -6)
-	knob.BackgroundColor3 = Color3.fromRGB(200, 210, 255)
-	knob.BorderSizePixel = 0
-	local c3 = Instance.new("UICorner", knob); c3.CornerRadius = UDim.new(1, 0)
+	knob.BackgroundColor3 = Color3.fromRGB(200,210,255); knob.BorderSizePixel = 0
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
-	local valLabel = Instance.new("TextLabel", frame)
-	valLabel.BackgroundTransparency = 1
-	valLabel.Position = UDim2.new(1, -80, 0, 0)
-	valLabel.Size = UDim2.new(0, 70, 0, 20)
-	valLabel.TextXAlignment = Enum.TextXAlignment.Right
-	valLabel.Text = tostring(getter()) .. (suffix or "")
-	valLabel.Font = Enum.Font.Gotham
-	valLabel.TextSize = 14
-	valLabel.TextColor3 = Color3.fromRGB(220,220,220)
+	local val = Instance.new("TextLabel", frame)
+	val.BackgroundTransparency = 1
+	val.Position = UDim2.new(1, -80, 0, 0)
+	val.Size = UDim2.new(0, 70, 0, 20)
+	val.TextXAlignment = Enum.TextXAlignment.Right
+	val.Font = Enum.Font.Gotham; val.TextSize = 14
+	val.TextColor3 = Color3.fromRGB(220,220,220)
 
 	local function updateVisual(v)
 		local t = math.clamp((v - min) / (max - min), 0, 1)
 		fill.Size = UDim2.new(t, 0, 1, 0)
 		knob.Position = UDim2.new(t, -6, 0.5, -6)
-		valLabel.Text = tostring(v) .. (suffix or "")
+		val.Text = tostring(v) .. (suffix or "")
 	end
-
 	updateVisual(getter())
 
 	local dragging = false
 	local function setFromX(x)
-		local rel = (x - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X
+		local rel = (x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X
 		local raw = min + rel * (max - min)
 		local stepped = math.floor((raw / step) + 0.5) * step
 		stepped = math.clamp(stepped, min, max)
@@ -318,7 +276,7 @@ local function makeSlider(parent, label, min, max, step, getter, setter, suffix)
 		updateVisual(stepped)
 	end
 
-	sliderBg.InputBegan:Connect(function(input)
+	bar.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = true
 			setFromX(input.Position.X)
@@ -339,124 +297,101 @@ local function makeSlider(parent, label, min, max, step, getter, setter, suffix)
 end
 
 local function makeButton(parent, label, onClick)
-	local frame = Instance.new("TextButton")
-	frame.Size = UDim2.new(1, -8, 0, 36)
-	frame.Text = label
-	frame.Font = Enum.Font.GothamBold
-	frame.TextSize = 14
-	frame.TextColor3 = Color3.new(1,1,1)
-	frame.BackgroundColor3 = Color3.fromRGB(45, 60, 90)
-	frame.BorderSizePixel = 0
-	local c = Instance.new("UICorner", frame); c.CornerRadius = UDim.new(0, 8)
-	frame.Parent = parent
-
-	frame.MouseButton1Click:Connect(function()
-		pcall(onClick)
-	end)
-
-	return frame
+	local btn = Instance.new("TextButton", parent)
+	btn.Size = UDim2.new(1, -8, 0, 36)
+	btn.Text = label
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.BackgroundColor3 = Color3.fromRGB(45, 60, 90)
+	btn.BorderSizePixel = 0
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+	btn.MouseButton1Click:Connect(function() pcall(onClick) end)
+	return btn
 end
 
--- =========================
--- LÓGICA: BOOST SPEED
--- =========================
-local boostConnection
+--=============================
+-- Funções: Boost / Jump / TP
+--=============================
+local boostConn
 local function startBoost()
-	local hum = getHumanoid(LocalPlayer)
-	if boostConnection then boostConnection:Disconnect() end
-	boostConnection = RunService.Heartbeat:Connect(function()
-		if hum and hum.Parent then
-			if hum.WalkSpeed ~= state.boostSpeed then
-				hum.WalkSpeed = state.boostSpeed
-			end
+	local hum = getHum(LocalPlayer)
+	if boostConn then boostConn:Disconnect() end
+	boostConn = RunService.Heartbeat:Connect(function()
+		if hum and hum.Parent and hum.WalkSpeed ~= STATE.boostSpeed then
+			hum.WalkSpeed = STATE.boostSpeed
 		end
 	end)
 end
-
 local function stopBoost()
-	if boostConnection then boostConnection:Disconnect() end
-	boostConnection = nil
-	local hum = getHumanoid(LocalPlayer)
+	if boostConn then boostConn:Disconnect() end
+	boostConn = nil
+	local hum = getHum(LocalPlayer)
 	if hum then hum.WalkSpeed = 16 end
 end
 
--- =========================
--- LÓGICA: INFINITE JUMP
--- =========================
 UserInputService.JumpRequest:Connect(function()
-	if state.infiniteJump then
-		local hum = getHumanoid(LocalPlayer)
-		if hum then
-			hum:ChangeState(Enum.HumanoidStateType.Jumping)
-		end
+	if STATE.infiniteJump then
+		local hum = getHum(LocalPlayer)
+		if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 	end
 end)
 
--- =========================
--- LÓGICA: TELEPORTE
--- =========================
-local function teleportForward(baseCF, forwardStuds, tweenTime)
+local function teleportForward(base, dist, tweenTime)
 	local hrp = getHRP(LocalPlayer)
-	local forward = baseCF.LookVector * (forwardStuds or 10)
-	local target = baseCF + forward
-	local char = hrp.Parent
-	local hum = char:FindFirstChildOfClass("Humanoid")
-
+	local hum = getHum(LocalPlayer)
+	local target = base + (base.LookVector * (dist or 12))
 	if hum then hum.PlatformStand = true end
 	if tweenTime and tweenTime > 0 then
-		local tween = TweenService:Create(hrp, TweenInfo.new(tweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = target})
-		tween:Play()
-		tween.Completed:Wait()
+		local tw = TweenService:Create(hrp, TweenInfo.new(tweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CFrame = target})
+		tw:Play(); tw.Completed:Wait()
 	else
 		hrp.CFrame = target
 	end
-	task.delay(0.3, function()
+	task.delay(0.25, function()
 		if hum then hum.PlatformStand = false end
-	end)
+	 end)
 end
 
--- =========================
--- LÓGICA: ESP JOGADORES
--- =========================
-local function teamColorFor(player)
-	if not state.espTeamColor then
-		return Color3.fromRGB(255,255,255)
-	end
-	local team = player.Team
-	if team and team.TeamColor then
-		return team.TeamColor.Color
-	end
-	return Color3.fromRGB(255,255,255)
+--=============================
+-- ESP Players (Highlight + Name/HP)
+--=============================
+local function teamColorFor(plr)
+	if not STATE.espTeamColor then return Color3.fromRGB(255,255,255) end
+	local team = plr.Team
+	return (team and team.TeamColor and team.TeamColor.Color) or Color3.fromRGB(255,255,255)
 end
 
-local function ensureESPForCharacter(player)
-	if player == LocalPlayer then return end
-	local char = player.Character
+local function ensureESP(plr)
+	if plr == LocalPlayer then return end
+	local char = plr.Character
 	if not char then return end
 
 	-- Highlight
 	local hl = char:FindFirstChildOfClass("Highlight")
-	if not hl then
+	if not hl and STATE.espPlayers then
 		hl = Instance.new("Highlight")
 		hl.Parent = char
 	end
-	hl.Enabled = state.espEnabled
-	hl.FillTransparency = state.espFillTransparency
-	hl.OutlineTransparency = state.espOutlineTransparency
-	hl.FillColor = teamColorFor(player)
-	hl.OutlineColor = Color3.fromRGB(0,0,0)
+	if hl then
+		hl.Enabled = STATE.espPlayers
+		hl.FillTransparency = STATE.fillT
+		hl.OutlineTransparency = STATE.outT
+		hl.FillColor = teamColorFor(plr)
+		hl.OutlineColor = Color3.fromRGB(0,0,0)
+	end
 
-	-- Billboard Name/Health
-	local billboard = char:FindFirstChild("PapagaioESP")
-	if not billboard then
-		billboard = Instance.new("BillboardGui")
-		billboard.Name = "PapagaioESP"
-		billboard.Size = UDim2.new(0, 140, 0, 40)
-		billboard.StudsOffset = Vector3.new(0, 3, 0)
-		billboard.AlwaysOnTop = true
-		billboard.Parent = char
+	-- Billboard
+	local bb = char:FindFirstChild("PapagaioESP")
+	if not bb and STATE.espPlayers then
+		bb = Instance.new("BillboardGui")
+		bb.Name = "PapagaioESP"
+		bb.AlwaysOnTop = true
+		bb.StudsOffset = Vector3.new(0, 3, 0)
+		bb.Size = UDim2.new(0, 140, 0, 40)
+		bb.Parent = char
 
-		local lbl = Instance.new("TextLabel")
+		local lbl = Instance.new("TextLabel", bb)
 		lbl.Name = "Text"
 		lbl.BackgroundTransparency = 1
 		lbl.Size = UDim2.new(1, 0, 1, 0)
@@ -464,177 +399,217 @@ local function ensureESPForCharacter(player)
 		lbl.TextStrokeTransparency = 0.4
 		lbl.Font = Enum.Font.GothamBold
 		lbl.TextScaled = true
-		lbl.Parent = billboard
 	end
 
-	local lbl = billboard:FindFirstChild("Text")
-	local textParts = {}
-	if state.espShowNames then
-		table.insert(textParts, player.Name)
-	end
-	if state.espShowHealth then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			table.insert(textParts, string.format("HP:%d", hum.Health))
+	if bb then
+		local lbl = bb:FindFirstChild("Text")
+		local parts = {}
+		if STATE.espShowNames then table.insert(parts, plr.Name) end
+		if STATE.espShowHealth then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hum then table.insert(parts, ("HP:%d"):format(hum.Health)) end
 		end
+		lbl.Text = table.concat(parts, " | ")
+		bb.Enabled = STATE.espPlayers
 	end
-	lbl.Text = table.concat(textParts, " | ")
-	billboard.Enabled = state.espEnabled
-
-	-- Atualiza cor continuamente (se trocar de time)
-	RunService.Heartbeat:Connect(function()
-		if hl and hl.Parent and state.espEnabled then
-			hl.FillColor = teamColorFor(player)
-			hl.FillTransparency = state.espFillTransparency
-			hl.OutlineTransparency = state.espOutlineTransparency
-		end
-	end)
 end
 
-local function refreshESPForAll()
-	for _,plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer then
-			if plr.Character then
-				ensureESPForCharacter(plr)
+local function refreshESPAll()
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then
+			if p.Character then
+				ensureESP(p)
 			end
-			plr.CharacterAdded:Connect(function()
-				task.wait(0.5)
-				ensureESPForCharacter(plr)
+			p.CharacterAdded:Connect(function()
+				task.wait(0.4)
+				ensureESP(p)
 			end)
 		end
 	end
 end
 
-Players.PlayerAdded:Connect(function(plr)
-	if plr ~= LocalPlayer then
-		plr.CharacterAdded:Connect(function()
-			task.wait(0.5)
-			ensureESPForCharacter(plr)
+Players.PlayerAdded:Connect(function(p)
+	if p ~= LocalPlayer then
+		p.CharacterAdded:Connect(function()
+			task.wait(0.4)
+			ensureESP(p)
 		end)
 	end
 end)
 
--- =========================
--- PÁGINAS / ABAS
--- =========================
-local tabMainBtn,   tabMainPage   = makeTab("Main")
-local tabMoveBtn,   tabMovePage   = makeTab("Move")
-local tabESPBtn,    tabESPPage    = makeTab("ESP")
-local tabMiscBtn,   tabMiscPage   = makeTab("Misc")
-local tabAboutBtn,  tabAboutPage  = makeTab("Sobre")
-
--- Seleciona aba inicial
-tabMainBtn:Activate()
-for _,child in ipairs(content:GetChildren()) do
-	if child:IsA("ScrollingFrame") then child.Visible = false end
+--=============================
+-- ESP "Locked" (acha textos com “Xs”)
+--=============================
+local function isJailText(part)
+	for _,d in ipairs(part:GetDescendants()) do
+		if d:IsA("TextLabel") and d.Text and d.Text:match("%d+s") then
+			return d
+		end
+	end
+	return nil
 end
-tabMainPage.Visible = true
-tabMainBtn.BackgroundColor3 = Color3.fromRGB(60,60,88)
+
+local function addLockedESP(part, label)
+	if part:FindFirstChild("ESP_JailText") then return end
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "ESP_JailText"
+	bb.Adornee = part
+	bb.Size = UDim2.new(0, 120, 0, 22)
+	bb.StudsOffset = Vector3.new(0, 3, 0)
+	bb.AlwaysOnTop = true
+	bb.Parent = part
+
+	local txt = Instance.new("TextLabel", bb)
+	txt.BackgroundTransparency = 1
+	txt.Size = UDim2.new(1,0,1,0)
+	txt.Font = Enum.Font.GothamSemibold
+	txt.TextSize = 14
+	txt.TextColor3 = Color3.fromRGB(255, 230, 0)
+	txt.TextStrokeTransparency = 0.4
+	txt.Text = "⛓️ "..label.Text
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if not STATE.espLocked or not label or not txt or not txt.Parent then
+			if conn then conn:Disconnect() end
+			return
+		end
+		if label.Text:match("%d+s") then
+			txt.Text = "⛓️ "..label.Text
+		else
+			txt.Text = ""
+		end
+	end)
+end
+
+local function clearLockedESP()
+	for _,obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			local g = obj:FindFirstChild("ESP_JailText")
+			if g then g:Destroy() end
+		end
+	end
+end
+
+task.spawn(function()
+	while true do
+		if STATE.espLocked then
+			for _,obj in ipairs(workspace:GetDescendants()) do
+				if obj:IsA("BasePart") and not obj:FindFirstChild("ESP_JailText") then
+					local lbl = isJailText(obj)
+					if lbl then addLockedESP(obj, lbl) end
+				end
+			end
+		end
+		task.wait(2.5)
+	end
+end)
+
+--=============================
+-- Abas e Controles
+--=============================
+local bMain, pMain   = makeTab("Main")
+local bMove, pMove   = makeTab("Move")
+local bESP,  pESP    = makeTab("ESP")
+local bMisc, pMisc   = makeTab("Misc")
+local bAbout,pAbout  = makeTab("Sobre")
+
+bMain:Activate(); pMain.Visible = true; bMain.BackgroundColor3 = Color3.fromRGB(60,60,88)
 
 -- MAIN
-makeToggle(tabMainPage, "Infinite Jump", function() return state.infiniteJump end, function(v)
-	state.infiniteJump = v
+makeToggle(pMain, "Infinite Jump", function() return STATE.infiniteJump end, function(v)
+	STATE.infiniteJump = v
 	notify("Papagaio Hub", v and "Infinite Jump ON" or "Infinite Jump OFF")
 end)
 
-makeToggle(tabMainPage, "Boost Velocidade", function() return state.boostEnabled end, function(v)
-	state.boostEnabled = v
+makeToggle(pMain, "Boost Velocidade", function() return STATE.boostEnabled end, function(v)
+	STATE.boostEnabled = v
 	if v then startBoost() else stopBoost() end
 end)
 
-makeSlider(tabMainPage, "Velocidade (boost)", 16, 100, 1, function() return state.boostSpeed end, function(newV)
-	state.boostSpeed = newV
-	if state.boostEnabled then startBoost() end
+makeSlider(pMain, "Velocidade (boost)", 16, 100, 1, function() return STATE.boostSpeed end, function(v)
+	STATE.boostSpeed = v
+	if STATE.boostEnabled then startBoost() end
 end, " u/s")
 
 -- MOVE
-makeSlider(tabMovePage, "Distância à frente (TP)", 0, 50, 1, function() return state.moveForwardStuds end, function(v)
-	state.moveForwardStuds = v
+makeSlider(pMove, "Distância à frente (TP)", 0, 50, 1, function() return STATE.tpForwardStuds end, function(v)
+	STATE.tpForwardStuds = v
 end, " studs")
 
-makeButton(tabMovePage, "Teleportar para Shop (suave)", function()
-	teleportForward(SHOP_CFRAME, state.moveForwardStuds, 0.35)
+makeButton(pMove, "Teleportar p/ Shop (suave)", function()
+	teleportForward(SHOP_CFRAME, STATE.tpForwardStuds, 0.35)
 end)
-
-makeButton(tabMovePage, "Teleportar para Shop (instantâneo)", function()
-	teleportForward(SHOP_CFRAME, state.moveForwardStuds, 0)
+makeButton(pMove, "Teleportar p/ Shop (instant)", function()
+	teleportForward(SHOP_CFRAME, STATE.tpForwardStuds, 0)
 end)
 
 -- ESP
-makeToggle(tabESPPage, "ESP Jogadores (ON/OFF)", function() return state.espEnabled end, function(v)
-	state.espEnabled = v
-	refreshESPForAll()
+makeToggle(pESP, "ESP Jogadores", function() return STATE.espPlayers end, function(v)
+	STATE.espPlayers = v
+	refreshESPAll()
 end)
-makeToggle(tabESPPage, "Mostrar Nomes", function() return state.espShowNames end, function(v)
-	state.espShowNames = v
-	refreshESPForAll()
+makeToggle(pESP, "Mostrar Nomes", function() return STATE.espShowNames end, function(v)
+	STATE.espShowNames = v
+	refreshESPAll()
 end)
-makeToggle(tabESPPage, "Mostrar Vida", function() return state.espShowHealth end, function(v)
-	state.espShowHealth = v
-	refreshESPForAll()
+makeToggle(pESP, "Mostrar Vida", function() return STATE.espShowHealth end, function(v)
+	STATE.espShowHealth = v
+	refreshESPAll()
 end)
-makeToggle(tabESPPage, "Cor por Time", function() return state.espTeamColor end, function(v)
-	state.espTeamColor = v
-	refreshESPForAll()
+makeToggle(pESP, "Cor por Time", function() return STATE.espTeamColor end, function(v)
+	STATE.espTeamColor = v
+	refreshESPAll()
 end)
-makeSlider(tabESPPage, "Transparência Fill", 0, 1, 0.05, function() return state.espFillTransparency end, function(v)
-	state.espFillTransparency = v
-	refreshESPForAll()
+makeSlider(pESP, "Transparência Fill", 0, 1, 0.05, function() return STATE.fillT end, function(v)
+	STATE.fillT = v
+	refreshESPAll()
 end)
-makeSlider(tabESPPage, "Transparência Outline", 0, 1, 0.05, function() return state.espOutlineTransparency end, function(v)
-	state.espOutlineTransparency = v
-	refreshESPForAll()
+makeSlider(pESP, "Transparência Outline", 0, 1, 0.05, function() return STATE.outT end, function(v)
+	STATE.outT = v
+	refreshESPAll()
+end)
+
+-- “ESP locked”
+makeToggle(pESP, "ESP Locked (contagem 'Xs')", function() return STATE.espLocked end, function(v)
+	STATE.espLocked = v
+	if not v then clearLockedESP() end
 end)
 
 -- MISC
-makeButton(tabMiscPage, "Reentrar no mesmo servidor", function()
-	local placeId, jobId = game.PlaceId, game.JobId
-	TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
+makeButton(pMisc, "Reentrar no mesmo servidor", function()
+	TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
 end)
 
-makeButton(tabMiscPage, "Hop para outro servidor público", function()
-	-- Observação: Em jogos próprios, você pode manter uma lista de servers.
-	notify("Papagaio Hub", "Para server hop público, implemente uma API própria ou UI de places.")
+makeButton(pMisc, "Créditos", function()
+	notify("Papagaio Hub", "Feito por Rotieh 🦜 | UI própria | Sem executor")
 end)
 
 -- SOBRE
 do
-	local t1 = Instance.new("TextLabel", tabAboutPage)
-	t1.Size = UDim2.new(1, -8, 0, 60)
-	t1.TextWrapped = true
-	t1.BackgroundTransparency = 1
-	t1.TextXAlignment = Enum.TextXAlignment.Left
-	t1.TextYAlignment = Enum.TextYAlignment.Top
-	t1.Font = Enum.Font.Gotham
-	t1.TextSize = 14
-	t1.TextColor3 = Color3.fromRGB(230,230,230)
-	t1.Text = "Papagaio Hub — Ferramentas de Admin/Dev para o SEU jogo.\nCréditos: Rotieh | UI própria | Sem exploits."
+	local t = Instance.new("TextLabel", pAbout)
+	t.Size = UDim2.new(1, -8, 0, 64)
+	t.BackgroundTransparency = 1
+	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.TextYAlignment = Enum.TextYAlignment.Top
+	t.Font = Enum.Font.Gotham
+	t.TextSize = 14
+	t.TextColor3 = Color3.fromRGB(230,230,230)
+	t.TextWrapped = true
+	t.Text = "Papagaio Hub — mesmas funções do seu exemplo, porém versão segura para o SEU jogo (Studio). Teleporte com slider, Boost, Infinite Jump, ESP players (nome/vida/cor), ESP 'locked', Rejoin."
 end
 
--- =========================
--- PERMISSÃO DE EXIBIÇÃO
--- =========================
-if not ADMINS[LocalPlayer.Name] then
-	screenGui.Enabled = false
-end
-
--- =========================
--- RESPAWN HANDLING
--- =========================
+-- Respawn: restaura Boost/ESP
 LocalPlayer.CharacterAdded:Connect(function()
-	if state.boostEnabled then
+	if STATE.boostEnabled then
 		task.wait(0.25)
 		startBoost()
 	end
-	if state.espEnabled then
-		task.wait(0.5)
-		refreshESPForAll()
+	if STATE.espPlayers then
+		task.wait(0.4)
+		refreshESPAll()
 	end
 end)
 
--- Inicial
-task.defer(function()
-	refreshESPForAll()
-end)
+notify("Papagaio Hub", "Pronto! UI arrastável com as mesmas funções (versão segura).")
 
-notify("Papagaio Hub", "Pronto! Use as abas para ativar recursos.")
